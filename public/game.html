@@ -329,6 +329,33 @@ button{font-family:inherit;cursor:pointer;}
   box-shadow:4px 0 0 rgba(0,0,0,.15);
   margin-left:-4px;
 }
+.falling-coin{
+  position:fixed;width:16px;height:16px;border-radius:50%;z-index:201;pointer-events:none;
+  background:radial-gradient(circle at 35% 30%, #fff3bd, var(--coin) 60%, var(--coin-dark) 100%);
+  border:2px solid var(--coin-dark);box-shadow:0 2px 0 var(--coin-dark);
+  transition:transform 1.1s cubic-bezier(.3,.3,.4,1), opacity 1.1s;
+}
+.finalist.eliminated-final{animation:yeetFinal 1s cubic-bezier(.3,0,.6,1) forwards;}
+@keyframes yeetFinal{
+  0%{transform:translateY(0) rotate(0);opacity:1;}
+  35%{transform:translateY(-36px) rotate(-10deg);opacity:1;}
+  100%{transform:translateY(220px) rotate(160deg);opacity:0;}
+}
+
+.emergency-btn{
+  position:fixed;right:18px;bottom:18px;z-index:300;
+  font-family:'Press Start 2P',monospace;font-size:10px;color:#ffd9d9;
+  background:rgba(40,8,10,.75);border:2px solid rgba(255,120,120,.6);border-radius:10px;
+  padding:10px 14px;letter-spacing:.5px;transition:background .15s, transform .1s, box-shadow .15s;
+  opacity:.55;
+}
+.emergency-btn:hover{opacity:1;}
+.emergency-btn.armed{
+  background:var(--mario-red);border-color:#fff;color:#fff;opacity:1;
+  box-shadow:0 0 0 4px rgba(228,36,43,.35);
+  animation:emergencyPulse .6s ease-in-out infinite;
+}
+@keyframes emergencyPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
 
 /* confetti */
 .confetti-layer{position:fixed;inset:0;pointer-events:none;z-index:999;overflow:hidden;}
@@ -449,6 +476,8 @@ button{font-family:inherit;cursor:pointer;}
 </div>
 
 <div class="confetti-layer" id="confetti"></div>
+
+<button id="emergencyBtn" class="emergency-btn" hidden>⚠ EMERGENCIA</button>
 
 <script>
 (function(){
@@ -1063,6 +1092,27 @@ function planeSvg(){
     <circle cx="30" cy="32" r="7" fill="#ffd43b" stroke="#1b1032" stroke-width="2"/>
   </svg>`;
 }
+function spawnCoinTrail(plane){
+  if(!plane) return;
+  const rect = plane.getBoundingClientRect();
+  for(let i=0;i<5;i++){
+    setTimeout(()=>{
+      const r = plane.getBoundingClientRect();
+      const coin = document.createElement('div');
+      coin.className='falling-coin';
+      coin.style.left = (r.left + 30 + (Math.random()*20-10)) + 'px';
+      coin.style.top = (r.top + 30) + 'px';
+      document.body.appendChild(coin);
+      requestAnimationFrame(()=>{
+        coin.style.transform = `translateY(${260+Math.random()*120}px) translateX(${Math.random()*80-40}px) rotate(${360+Math.random()*360}deg)`;
+        coin.style.opacity='0';
+      });
+      Sound.coin();
+      setTimeout(()=>coin.remove(), 1400);
+    }, i*260);
+  }
+}
+
 function renderCrownedDesktop(){
   const winner = Object.assign({id:gameState.winnerId}, players[gameState.winnerId]);
   const others = (gameState.semiFinalists||[]).filter(id=>id!==gameState.winnerId).map(id=>Object.assign({id},players[id]));
@@ -1072,8 +1122,8 @@ function renderCrownedDesktop(){
       <div class="castle-row">
         <div class="finalist winner" id="winnerSprite"><div class="av">${avatarSvg(winner.avatar,winner.color)}</div><div class="nm">${escapeHtml(winner.name||'???')}</div></div>
       </div>
-      <div class="castle-row">
-        ${others.map(p=>`<div class="finalist"><div class="av">${avatarSvg(p.avatar,p.color)}</div><div class="nm">${escapeHtml(p.name||'???')}</div></div>`).join('')}
+      <div class="castle-row" id="otherFinalists">
+        ${others.map((p,i)=>`<div class="finalist" data-i="${i}"><div class="av">${avatarSvg(p.avatar,p.color)}</div><div class="nm">${escapeHtml(p.name||'???')}</div></div>`).join('')}
       </div>
     </div>
     <div id="planeBanner" class="plane-banner" hidden>
@@ -1087,19 +1137,28 @@ function renderCrownedDesktop(){
     setTimeout(()=>burstConfetti(120), 700);
     setTimeout(()=>burstConfetti(120), 1400);
     setTimeout(()=>{
+      // the losing finalists get launched off the mountain, same beat as
+      // regular round eliminations — coherent with the rest of the game
+      document.querySelectorAll('#otherFinalists .finalist').forEach((el,i)=>{
+        setTimeout(()=>el.classList.add('eliminated-final'), i*150);
+      });
+      Sound.wrong();
+    }, 1700);
+    setTimeout(()=>{
       const sprite=document.getElementById('winnerSprite');
       if(sprite) sprite.classList.add('jump-away');
       Sound.coin();
-    }, 2200);
+    }, 2400);
     setTimeout(()=>{
       const plane=document.getElementById('planeBanner');
-      if(plane){ plane.hidden=false; plane.classList.add('fly'); }
+      if(plane){ plane.hidden=false; plane.classList.add('fly'); spawnCoinTrail(plane); }
       Sound.whoosh();
       Sound.levelup();
-    }, 2800);
+    }, 3000);
   } else {
+    document.querySelectorAll('#otherFinalists .finalist').forEach(el=>el.classList.add('eliminated-final'));
     const plane=document.getElementById('planeBanner');
-    if(plane && gameState.crownedFx){ plane.hidden=false; plane.classList.add('fly'); }
+    if(plane && gameState.crownedFx){ plane.hidden=false; plane.classList.add('fly'); spawnCoinTrail(plane); }
     const sprite=document.getElementById('winnerSprite');
     if(sprite) sprite.classList.add('jump-away');
   }
@@ -1273,13 +1332,47 @@ function onPlayersChange(){
   else renderMobile();
 }
 
+/* ---------------- emergency fallback: force-crown the current leader ----------------
+   Visible only on desktop. Requires two clicks (arm, then confirm within 4s) so it
+   can't fire by accident mid-event. Skips straight to the CROWNED phase using
+   whoever currently leads the scoreboard, bypassing any broken phase transition. */
+function wireEmergencyButton(){
+  const btn = document.getElementById('emergencyBtn');
+  if(!btn) return;
+  btn.hidden = false;
+  let armed=false, disarmTimer=null;
+  btn.onclick=()=>{
+    if(!armed){
+      armed=true;
+      btn.classList.add('armed');
+      btn.textContent='⚠ CONFIRMAR GANADOR';
+      Sound.tick(true);
+      disarmTimer=setTimeout(()=>{
+        armed=false; btn.classList.remove('armed'); btn.textContent='⚠ EMERGENCIA';
+      }, 4000);
+      return;
+    }
+    clearTimeout(disarmTimer);
+    armed=false;
+    btn.classList.remove('armed');
+    btn.textContent='⚠ EMERGENCIA';
+    const leader = sortedPlayers()[0];
+    if(!leader) return;
+    patchState({
+      phase:PHASE.CROWNED, winnerId:leader.id,
+      semiFinalists: gameState.semiFinalists && gameState.semiFinalists.length ? gameState.semiFinalists : [leader.id],
+      crownedFx:false
+    });
+  };
+}
+
 /* ---------------- boot ---------------- */
 if(isMobile){
   if(!myRoomId){ document.body.innerHTML='<div style="padding:40px;color:#fff;font-family:sans-serif;">Código de sala inválido.</div>'; }
   else { initBackend(myRoomId).then(()=>{ renderMobile(); }); }
 } else {
   if(!myRoomId){ myRoomId=roomCode(); sessionStorage.setItem('camb_hostroom', myRoomId); }
-  initBackend(myRoomId).then(()=>{ renderDesktop(); });
+  initBackend(myRoomId).then(()=>{ renderDesktop(); wireEmergencyButton(); });
 }
 
 })();
