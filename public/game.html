@@ -564,7 +564,7 @@ function roomCode(){ return Math.random().toString(36).slice(2,6).toUpperCase();
    Vercel's serverless functions can't hold a persistent ws connection or
    shared in-memory room state. Set RELAY_WS_URL to that Render service's
    wss:// URL before deploying. */
-const RELAY_WS_URL = window.RELAY_WS_URL || 'wss://claude-ambassador-quest-relay.onrender.com';
+const RELAY_WS_URL = window.RELAY_WS_URL || 'wss://claude-ambassador-quest.onrender.com';
 
 async function resolveBaseUrl(){
   const u=new URL(location.href); u.search=''; u.hash=''; return u.toString();
