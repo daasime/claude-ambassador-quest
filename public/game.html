@@ -737,7 +737,6 @@ function renderLobby(){
     const linkEl=document.getElementById('qrLink'); if(linkEl) linkEl.textContent=url;
   });
   buildRefuge(document.getElementById('refugePlayers'));
-  buildWorldMap(document.getElementById('worldmap'), -1);
   document.getElementById('startBtn').onclick=()=>{
     Sound.unlock(); Sound.click();
     if(Object.keys(players).length===0) return;
