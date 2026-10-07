@@ -1,0 +1,12 @@
+{
+  "name": "claude-ambassador-quest-relay",
+  "version": "1.0.0",
+  "description": "WebSocket relay + game room state for Claude Ambassador Quest",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

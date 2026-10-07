@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: claude-ambassador-quest-relay
+    runtime: node
+    rootDir: relay
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
