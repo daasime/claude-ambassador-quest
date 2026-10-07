@@ -85,6 +85,14 @@ button{font-family:inherit;cursor:pointer;}
 }
 .players-badge .pixel{font-size:14px;}
 .players-badge .dot{width:9px;height:9px;border-radius:50%;background:#44e06a;box-shadow:0 0 8px #44e06a;animation:pulse 1.4s ease-in-out infinite;}
+.hud-right{display:flex;align-items:center;gap:10px;}
+.reset-btn{
+  font-family:'Press Start 2P',monospace;font-size:10px;color:#ffd9d9;
+  background:rgba(13,21,80,.55);border:2px solid rgba(255,255,255,.5);border-radius:10px;
+  padding:9px 12px;letter-spacing:.5px;transition:background .15s, transform .1s;
+}
+.reset-btn:hover{background:rgba(228,36,43,.45);}
+.reset-btn:active{transform:translateY(1px);}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* ===== generic panel ===== */
@@ -146,7 +154,7 @@ button{font-family:inherit;cursor:pointer;}
   max-width:780px;
 }
 .worldmap-card h3{margin:0 0 14px;font-size:13px;color:var(--mario-red-dark);}
-#worldmap{position:relative;height:230px;border-radius:14px;background:
+#worldmap,#worldmapRank{position:relative;height:230px;border-radius:14px;background:
   linear-gradient(to bottom, #9fe6ff 0%, #bdf0ae 72%, #8fd96b 100%);
   overflow:hidden;border:3px solid #3f8f3a;}
 .wm-peak{position:absolute;left:50%;bottom:0;width:0;height:0;transform:translateX(-50%);
@@ -394,7 +402,10 @@ button{font-family:inherit;cursor:pointer;}
       <div class="coin-icon"></div>
       <div class="pixel">CLAUDE AMBASSADOR QUEST</div>
     </div>
-    <div class="players-badge"><span class="dot"></span><span class="pixel" id="hudPlayerCount">0</span><span style="font-size:11px;font-weight:800;">JUGADORES</span></div>
+    <div class="hud-right">
+      <div class="players-badge"><span class="dot"></span><span class="pixel" id="hudPlayerCount">0</span><span style="font-size:11px;font-weight:800;">JUGADORES</span></div>
+      <button class="reset-btn" id="resetBtn" title="Reiniciar partida">↺ RESET</button>
+    </div>
   </div>
   <div class="d-stage" id="dStage"></div>
 </div>
@@ -553,7 +564,7 @@ const FINAL_Q = { q:"DESEMPATE: ¿Qué compañía fundó Anthropic en 2021, form
   opts:["Anthropic","DeepMind","Cohere","Mistral AI"], correct:0 };
 
 const PHASE = { LOBBY:'lobby', QUESTION:'question', REVEAL:'reveal', RANKING:'ranking', FINAL_BOARD:'final_board', SEMI:'semi', SEMI_REVEAL:'semi_reveal', CROWNED:'crowned' };
-const QUESTION_SECONDS = 18;
+const QUESTION_SECONDS = 12;
 
 function uid(){ return Math.random().toString(36).slice(2,10); }
 function roomCode(){ return Math.random().toString(36).slice(2,6).toUpperCase(); }
@@ -638,8 +649,22 @@ function sortedPlayers(){
   return Object.keys(players).map(id=>Object.assign({id},players[id])).sort((a,b)=>(b.score||0)-(a.score||0));
 }
 
+let resetWired=false;
 function renderHud(){
   hudCount.textContent = Object.keys(players).length;
+  if(!resetWired){
+    resetWired=true;
+    document.getElementById('resetBtn').onclick=()=>{
+      Sound.click();
+      if(!confirm('¿Reiniciar la partida? Se borran todos los jugadores y el progreso.')) return;
+      Object.keys(players).forEach(id=>patchPlayer(id, {__removed:true}));
+      players={};
+      patchState({
+        phase:PHASE.LOBBY, qIndex:-1, deadline:0, semiFinalists:[], winnerId:null,
+        revealStage:0, scoredQ:undefined, started:false, crownedFx:false, __clearPlayers:true
+      });
+    };
+  }
 }
 
 function renderDesktop(){
@@ -665,7 +690,7 @@ function renderLobby(){
         <button class="start-btn" id="startBtn">▶ EMPEZAR</button>
       </div>
       <div class="worldmap-card">
-        <h3 class="pixel">MAPA DEL REINO</h3>
+        <h3 class="pixel">MONTE CLAUDE</h3>
         <div id="worldmap"></div>
         <div class="lobby-counter">
           <div class="big">${Object.keys(players).length}</div>
@@ -689,25 +714,38 @@ function renderLobby(){
   };
 }
 
-function buildWorldMap(box, currentIdx, highlightIds){
+/* Monte Claude: a two-slope mountain. Even-indexed players climb the left
+   slope, odd-indexed climb the right — both sides converge at the summit
+   castle where the semifinal happens. Players eliminated from the running
+   (not in the top 4 once semifinals start) get the .eliminated class, which
+   launches them off the path via the `yeet` keyframes instead of just
+   leaving them stranded on a stale node. */
+function buildWorldMap(box, currentIdx, eliminatedIds){
   const total=QUESTIONS.length;
-  let nodesHtml=`<div class="wm-path"></div>`;
-  for(let i=0;i<total;i++){
-    const pct = 8 + (i*(84/(total)));
-    nodesHtml += `<div class="wm-node block ${i===currentIdx?'active':''}" style="left:${pct}%">${i+1}</div>`;
-  }
-  nodesHtml += `<div class="wm-node castle ${currentIdx>=total?'active':''}" style="left:94%">🏰</div>`;
-  box.innerHTML = nodesHtml + `<div class="wm-players" id="wmPlayers"></div>`;
+  const eliminated = new Set(eliminatedIds||[]);
+  let nodesHtml = `
+    <div class="wm-side-label left">LADERA A</div>
+    <div class="wm-side-label right">LADERA B</div>
+    <div class="wm-peak"></div>
+    <div class="wm-node castle ${currentIdx>=total?'active':''}">🏔️</div>`;
+  box.innerHTML = nodesHtml + `<div id="wmPlayers"></div>`;
   const wmPlayers = document.getElementById('wmPlayers');
   const list = sortedPlayers();
-  const n = Math.max(list.length,1);
+  const idx = Math.min(Math.max(currentIdx,0), total);
+
   list.forEach((p,i)=>{
-    const idx = Math.min(Math.max(currentIdx,0), total);
-    const pct = idx>=total ? 94 : (8 + (idx*(84/total)));
-    const spread = ((i - (n-1)/2) * 2.6);
     const el=document.createElement('div');
-    el.className='wm-player';
-    el.style.left = `calc(${pct}% + ${spread}px)`;
+    const isEliminated = eliminated.has(p.id);
+    el.className='wm-player'+(isEliminated?' eliminated':'');
+    const side = i%2===0 ? 'left' : 'right';
+    const slopeProgress = idx/total; // 0 at base, 1 at summit
+    // left slope runs from 6% to 48%, right slope from 94% down to 52%, both climbing bottom(14%)->bottom(88%)
+    const xPct = side==='left' ? (6 + slopeProgress*42) : (94 - slopeProgress*42);
+    const yPct = 14 + slopeProgress*74;
+    const lane = Math.floor(i/2);
+    const spread = (lane%4)*9 - 13;
+    el.style.left = `calc(${xPct}% + ${spread}px)`;
+    el.style.bottom = `${yPct}%`;
     el.innerHTML = `<div class="cap" style="background:${p.color||'#e4242b'}"></div><div class="name">${escapeHtml(p.name||'???')}</div>`;
     wmPlayers.appendChild(el);
   });
@@ -746,6 +784,7 @@ function renderQuestionDesktop(){
   const fill=document.getElementById('timerFill');
   const num=document.getElementById('timerNum');
   const CIRC=238.6;
+  let allAnsweredAt=null;
   function tickRender(){
     const remainMs = gameState.deadline - Date.now();
     const remain = Math.max(0, Math.ceil(remainMs/1000));
@@ -753,8 +792,21 @@ function renderQuestionDesktop(){
     const frac = Math.max(0, Math.min(1, remainMs/(QUESTION_SECONDS*1000)));
     fill.setAttribute('stroke-dashoffset', (CIRC*(1-frac)).toString());
     fill.style.stroke = frac<0.25 ? '#e4242b' : (frac<0.5?'#f2a90c':'#1a9850');
+    const totalPlayers = Object.keys(players).length;
     const answered = Object.values(players).filter(p=>p.lastAnswerQ===gameState.qIndex).length;
-    const cEl=document.getElementById('answeredCount'); if(cEl) cEl.textContent=`${answered} / ${Object.keys(players).length} respondieron`;
+    const cEl=document.getElementById('answeredCount'); if(cEl) cEl.textContent=`${answered} / ${totalPlayers} respondieron`;
+    // everyone answered: skip the rest of the countdown after a short grace beat
+    if(totalPlayers>0 && answered>=totalPlayers){
+      if(!allAnsweredAt) allAnsweredAt=Date.now();
+      if(Date.now()-allAnsweredAt>900){
+        clearInterval(timerInterval);
+        Sound.whoosh();
+        patchState({phase:PHASE.REVEAL, revealAt:Date.now()});
+        return;
+      }
+    } else {
+      allAnsweredAt=null;
+    }
     if(remain<=0){
       clearInterval(timerInterval);
       Sound.whoosh();
@@ -823,6 +875,10 @@ function renderRankingDesktop(isFinal){
     <div class="rank-wrap">
       <div class="rank-title">${isFinal?'🏆 CLASIFICACIÓN FINAL 🏆':'RANKING'}</div>
       <div id="rankList" style="width:100%;display:flex;flex-direction:column;gap:10px;"></div>
+      <div class="worldmap-card" style="width:100%;max-width:640px;margin-top:4px;">
+        <h3 class="pixel" style="font-size:11px;">MONTE CLAUDE${isFinal?' — SOLO 4 SIGUEN SUBIENDO':''}</h3>
+        <div id="worldmapRank"></div>
+      </div>
       <button class="start-btn" id="rankNextBtn" style="font-size:14px;padding:14px 28px;display:none;">
         ${isFinal? '🏰 IR AL CASTILLO' : (isLastQuestion ? 'VER TOP 4 ▶' : 'SIGUIENTE PREGUNTA ▶')}
       </button>
@@ -872,10 +928,18 @@ function renderRankingDesktop(isFinal){
       patchState({phase:PHASE.QUESTION, qIndex:nextIdx, deadline:Date.now()+QUESTION_SECONDS*1000});
     }
   };
-  // advance world map walkers on screen
-  buildWorldMapIfPresent();
+  // advance world map walkers: everyone climbs one notch per answered question;
+  // on the final board, anyone outside the top 4 gets launched off the path.
+  const mapBox = document.getElementById('worldmapRank');
+  if(mapBox){
+    const climbIdx = gameState.qIndex+1;
+    const eliminatedIds = isFinal ? list.slice(4).map(p=>p.id) : [];
+    buildWorldMap(mapBox, climbIdx, eliminatedIds);
+    if(isFinal && eliminatedIds.length){
+      setTimeout(()=>Sound.wrong(), 300);
+    }
+  }
 }
-function buildWorldMapIfPresent(){ /* world map only shown in lobby per design; kept for future use */ }
 
 function renderSemiDesktop(){
   if(timerInterval) clearInterval(timerInterval);
@@ -901,6 +965,7 @@ function renderSemiDesktop(){
     </div>`;
   const fill=document.getElementById('timerFillS'); const num=document.getElementById('timerNumS');
   const CIRC=238.6;
+  let allAnsweredAtS=null;
   function tick(){
     const remainMs = gameState.semiDeadline - Date.now();
     const remain = Math.max(0, Math.ceil(remainMs/1000));
@@ -908,6 +973,13 @@ function renderSemiDesktop(){
     const frac=Math.max(0,Math.min(1,remainMs/(QUESTION_SECONDS*1000)));
     fill.setAttribute('stroke-dashoffset',(CIRC*(1-frac)).toString());
     fill.style.stroke= frac<0.25?'#e4242b':(frac<0.5?'#f2a90c':'#1a9850');
+    const answered = finalists.filter(p=>p.semiAnswer!==undefined).length;
+    if(finalists.length>0 && answered>=finalists.length){
+      if(!allAnsweredAtS) allAnsweredAtS=Date.now();
+      if(Date.now()-allAnsweredAtS>900){
+        clearInterval(timerInterval); Sound.whoosh(); patchState({phase:PHASE.SEMI_REVEAL}); return;
+      }
+    } else { allAnsweredAtS=null; }
     if(remain<=0){ clearInterval(timerInterval); Sound.whoosh(); patchState({phase:PHASE.SEMI_REVEAL}); }
     else if(remain<=5) Sound.tick(true); else Sound.tick(false);
   }
