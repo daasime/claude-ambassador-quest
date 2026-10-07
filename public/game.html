@@ -802,6 +802,7 @@ function renderHud(){
 
 function renderDesktop(){
   renderHud();
+  if(gameState.phase!==PHASE.RANKING && gameState.phase!==PHASE.FINAL_BOARD) rankRenderedFor=null;
   if(!gameState.phase || gameState.phase===PHASE.LOBBY) renderLobby();
   else if(gameState.phase===PHASE.QUESTION) renderQuestionDesktop();
   else if(gameState.phase===PHASE.REVEAL) renderRevealDesktop();
@@ -1049,6 +1050,7 @@ function renderThinkingDesktop(onDone){
 }
 
 let thinkingActiveForQ=null;
+let rankRenderedFor=null;
 function renderRankingDesktop(isFinal){
   if(gameState.scoredQ!==gameState.qIndex){
     if(thinkingActiveForQ!==gameState.qIndex){
@@ -1058,6 +1060,13 @@ function renderRankingDesktop(isFinal){
     if(!isMobile) computeScoreUpdatesOnce();
     return;
   }
+  // once this ranking screen has already been built for this phase+question,
+  // further WebSocket syncs (another player's action, etc.) must NOT rebuild
+  // it from scratch — that would restart the reveal animation mid-flight and
+  // look like the ranking "appearing twice"
+  const renderKey = (isFinal?'final':'rank')+':'+gameState.qIndex;
+  if(rankRenderedFor===renderKey) return;
+  rankRenderedFor=renderKey;
   const list = sortedPlayers();
   const nextIdx = gameState.qIndex+1;
   const isLastQuestion = nextIdx>=QUESTIONS.length;
