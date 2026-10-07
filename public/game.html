@@ -352,6 +352,12 @@ button{font-family:inherit;cursor:pointer;}
 .finalist .nm{font-weight:900;font-size:16px;}
 .finalist.winner{transform:scale(1.25);}
 .winner-banner{font-family:'Press Start 2P',monospace;font-size:30px;color:var(--coin);text-shadow:3px 3px 0 var(--panel-edge);text-align:center;}
+.winner-name-giant{
+  font-size:clamp(40px,7vw,88px);color:#fff;text-align:center;line-height:1.15;
+  text-shadow:4px 4px 0 var(--mario-red-dark), 0 0 40px rgba(255,217,138,.6);
+  text-wrap:balance;animation:winnerNamePop .6s cubic-bezier(.2,1.4,.3,1);
+}
+@keyframes winnerNamePop{from{transform:scale(.4);opacity:0;}to{transform:scale(1);opacity:1;}}
 .finalist.winner.jump-away{animation:jumpAway 1.1s cubic-bezier(.3,0,.6,1) forwards;}
 @keyframes jumpAway{
   0%{transform:scale(1.25) translateY(0);}
@@ -1225,8 +1231,9 @@ function renderCrownedDesktop(){
     <div class="castle-wrap">
       <div class="winner-banner">👑 CLAUDE AMBASSADOR DEL DÍA 👑</div>
       <div class="castle-row">
-        <div class="finalist winner" id="winnerSprite"><div class="av">${avatarSvg(winner.avatar,winner.color)}</div><div class="nm">${escapeHtml(winner.name||'???')}</div></div>
+        <div class="finalist winner" id="winnerSprite"><div class="av">${avatarSvg(winner.avatar,winner.color)}</div></div>
       </div>
+      <div class="winner-name-giant pixel" id="winnerNameGiant">${escapeHtml(winner.name||'???')}</div>
       <div class="castle-row" id="otherFinalists">
         ${others.map((p,i)=>`<div class="finalist" data-i="${i}"><div class="av">${avatarSvg(p.avatar,p.color)}</div><div class="nm">${escapeHtml(p.name||'???')}</div></div>`).join('')}
       </div>
