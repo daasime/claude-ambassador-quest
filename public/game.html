@@ -683,18 +683,22 @@ function renderLobby(){
   dStage.innerHTML = `
     <div class="lobby-wrap">
       <div class="qr-card" id="qrCard">
+        <div class="qr-banner pixel">¡SUMATE A LA AVENTURA!</div>
         <h2 class="pixel">ESCANEÁ PARA UNIRTE</h2>
         <p class="sub">usá la cámara de tu celular</p>
-        <div id="qrcode">Generando QR…</div>
+        <div class="qr-frame"><div id="qrcode">Generando QR…</div></div>
         <div class="link" id="qrLink"></div>
         <button class="start-btn" id="startBtn">▶ EMPEZAR</button>
       </div>
       <div class="worldmap-card">
-        <h3 class="pixel">MONTE CLAUDE</h3>
-        <div id="worldmap"></div>
+        <h3 class="pixel">🏕️ REFUGIO BASE</h3>
+        <div id="refuge">
+          <div class="refuge-fire"><div class="flame"></div></div>
+          <div id="refugePlayers"></div>
+        </div>
         <div class="lobby-counter">
           <div class="big">${Object.keys(players).length}</div>
-          <div class="cap">Aventureros listos</div>
+          <div class="cap">Aventureros listos — preparándose para la Montaña</div>
         </div>
       </div>
     </div>`;
@@ -702,9 +706,10 @@ function renderLobby(){
     const url = base.replace(/\/$/,'')+'/?room='+myRoomId;
     const qrBox=document.getElementById('qrcode');
     qrBox.innerHTML='';
-    try{ new QRCode(qrBox, {text:url, width:168, height:168, colorDark:'#1b1032', colorLight:'#ffffff'}); }catch(e){ qrBox.textContent=url; }
+    try{ new QRCode(qrBox, {text:url, width:176, height:176, colorDark:'#1b1032', colorLight:'#ffffff'}); }catch(e){ qrBox.textContent=url; }
     const linkEl=document.getElementById('qrLink'); if(linkEl) linkEl.textContent=url;
   });
+  buildRefuge(document.getElementById('refugePlayers'));
   buildWorldMap(document.getElementById('worldmap'), -1);
   document.getElementById('startBtn').onclick=()=>{
     Sound.unlock(); Sound.click();

@@ -52,10 +52,20 @@ server.on('upgrade', (req, socket, head) => {
       try { msg = JSON.parse(raw.toString()); } catch (e) { return; }
 
       if (msg.type === 'patchState' && msg.patch && typeof msg.patch === 'object') {
-        Object.assign(room.state, msg.patch);
+        const { __clearPlayers, ...rest } = msg.patch;
+        if (__clearPlayers) {
+          room.players = {};
+          room.state = rest; // full reset: replace rather than merge, so stale fields don't survive
+        } else {
+          Object.assign(room.state, rest);
+        }
         broadcast(room);
       } else if (msg.type === 'patchPlayer' && msg.id && msg.patch && typeof msg.patch === 'object') {
-        room.players[msg.id] = Object.assign({}, room.players[msg.id], msg.patch);
+        if (msg.patch.__removed) {
+          delete room.players[msg.id];
+        } else {
+          room.players[msg.id] = Object.assign({}, room.players[msg.id], msg.patch);
+        }
         broadcast(room);
       }
     });
