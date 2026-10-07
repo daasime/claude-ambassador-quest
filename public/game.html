@@ -353,11 +353,14 @@ button{font-family:inherit;cursor:pointer;}
 .finalist.winner{transform:scale(1.25);}
 .winner-banner{font-family:'Press Start 2P',monospace;font-size:30px;color:var(--coin);text-shadow:3px 3px 0 var(--panel-edge);text-align:center;}
 .winner-name-giant{
-  font-size:clamp(40px,7vw,88px);color:#fff;text-align:center;line-height:1.15;
-  text-shadow:4px 4px 0 var(--mario-red-dark), 0 0 40px rgba(255,217,138,.6);
-  text-wrap:balance;animation:winnerNamePop .6s cubic-bezier(.2,1.4,.3,1);
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:150;
+  font-size:clamp(44px,8vw,100px);color:#fff;text-align:center;line-height:1.15;
+  text-shadow:5px 5px 0 var(--mario-red-dark), 0 0 50px rgba(255,217,138,.7);
+  text-wrap:balance;white-space:nowrap;
+  animation:winnerNamePop .6s cubic-bezier(.2,1.4,.3,1);
+  pointer-events:none;
 }
-@keyframes winnerNamePop{from{transform:scale(.4);opacity:0;}to{transform:scale(1);opacity:1;}}
+@keyframes winnerNamePop{from{transform:translate(-50%,-50%) scale(.4);opacity:0;}to{transform:translate(-50%,-50%) scale(1);opacity:1;}}
 .finalist.winner.jump-away{animation:jumpAway 1.1s cubic-bezier(.3,0,.6,1) forwards;}
 @keyframes jumpAway{
   0%{transform:scale(1.25) translateY(0);}
